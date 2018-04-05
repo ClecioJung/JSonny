@@ -1,3 +1,5 @@
+# Based on http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+
 # ----------------------------------------
 # Project definitions
 # ----------------------------------------
@@ -30,7 +32,10 @@ OBJ = $(subst .c,.o,$(subst $(SDIR),$(ODIR),$(SRC)))
 CC = gcc
 
 # Flags for compiler
-CFLAGS = -c -W -Wall -pedantic -std=c99
+CFLAGS = -W -Wall -pedantic -std=c99
+DEPFLAGS = -MT $@ -MMD -MP -MF $(DDIR)/$*.Td
+COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS)
+POSTCOMPILE = mv -f $(DDIR)/$*.Td $(DDIR)/$*.d && touch $@
 
 # ----------------------------------------
 # Fomating macros
@@ -48,18 +53,21 @@ GREEN = \033[0;32m
 all: directories $(EXEC)
 
 $(EXEC): $(OBJ)
-	@ echo "${GREEN}Building binary: ${BOLD}$@${GREEN} using dependencies: ${BOLD}$^ ${NORMAL}"
-	@ $(CC) $(filter %.c %.s %.o,$^) -o $@
+	@ echo "${GREEN}Building binary: ${BOLD}$@${GREEN} using dependencies: ${BOLD}$^${NORMAL}"
+	@ $(COMPILE.c) $(filter %.c %.s %.o,$^) -o $@
+	@ touch $@
 	@ echo "${GREEN}Finished building binary: ${BOLD}$@ ${NORMAL}"
 
-$(ODIR)/%.o: $(SDIR)/%.c
-	@ echo "${GREEN}Building target: ${BOLD}$@${GREEN}, using dependencies: ${BOLD}$^ ${NORMAL}"
-	@ $(CC) $(CFLAGS) $(filter %.c %.s %.o,$^) -o $@
+$(ODIR)/%.o : $(SDIR)/%.c
+$(ODIR)/%.o : $(SDIR)/%.c $(DDIR)/%.d
+	@ echo "${GREEN}Building target: ${BOLD}$@${GREEN}, using dependencies: ${BOLD}$^${NORMAL}"
+	@ $(COMPILE.c) -c $(filter %.c %.s %.o,$^) -o $@
+	@ $(POSTCOMPILE)
+
+$(DDIR)/%.d: ;
+.PRECIOUS: $(DDIR)/%.d
 
 -include $(DEPS)
-
-$(DDIR)/%.d: $(SDIR)/%.c
-	@ $(CC) $(CFLAGS) $< -MM -MT '$(ODIR)/$*.o $(DDIR)/$*.d' -MF $@
 
 # ----------------------------------------
 # Script rules
@@ -93,9 +101,7 @@ memcheck:
 clean:
 	@ rm -fr $(ODIR)/ $(DDIR)/ $(EXEC) *~ env.mk
 
-remade:
-	@ $(MAKE) clean
-	@ $(MAKE) all
+remade: clean all
 
 .PHONY: all status log commit-% directories run memcheck clean remade
 

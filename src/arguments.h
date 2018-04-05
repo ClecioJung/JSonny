@@ -13,24 +13,25 @@
 //------------------------------------------------------------------------------
 
 /*  List of arguments interpreted by the main function
-OBS: insert commands in the order to be executed
-Exemple:
+- Insert commands in the order to be executed
+- Example:
 X(name,		parameter,	function,		"usage")
 */
 #define X_ARGUMENTS(X) \
 X(version,	false,		printVersion,	"Print software version.") \
 X(help,		false,		printUsage,		"Print this help message.") \
 X(file,		true,		setFileName,	"Especifies the file to be evaluated.") \
-X(lex,		false,		setLexOption,	"Print in the screen the lexical analysis of the input.")
+X(lex,		false,		setLexOption,	"Print in the screen the lexical analysis of the input.") \
+X(print,	false,		setPrintOption,	"Print in the screen the colored code.")
+
+// Auxiliar definitions for arguments X MACRO
+#define X_ARG_EXPAND_TABLE(a,b,c,d)		{.cmd = "--" # a, .param = b, .function = c, .usage = d},
+#define X_ARG_EXPAND_COUNT(a,b,c,d)		+1
+#define ARG_COUNT						(0 X_ARGUMENTS(X_ARG_EXPAND_COUNT))
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
 //------------------------------------------------------------------------------
-
-// Auxiliar definitions for arguments X MACRO
-#define X_ARG_EXPAND_INIT_TABLE(a,b,c,d)	{.cmd = "--" # a, .param = b, .function = c, .usage = d},
-#define X_ARG_EXPAND_COUNT(a,b,c,d)			+1
-#define ARG_COUNT							(0 X_ARGUMENTS(X_ARG_EXPAND_COUNT))
 
 //------------------------------------------------------------------------------
 // USER TYPES
@@ -42,28 +43,25 @@ struct ArgParameters {
 	char *parameter;
 };
 
-typedef void (*argFunction)(struct ArgParameters *, struct EnvironmentData *);
+typedef void (*ArgFunction)(const struct ArgParameters *const, struct EnvironmentData *);
 
 // Table used to concentrate all the information related to the commands
 struct ArgCmd {
 	char *cmd;
-	argFunction function;
+	ArgFunction function;
 	char *usage;
 	bool param;
 };
 
 //------------------------------------------------------------------------------
-// FUNCTIONS
+// FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
 
-void setFileName(struct ArgParameters *this, struct EnvironmentData *env);
-void printVersion(struct ArgParameters *this, struct EnvironmentData *env);
-void printUsage(struct ArgParameters *this, struct EnvironmentData *env);
-void setLexOption(struct ArgParameters *this, struct EnvironmentData *env);
+struct EnvironmentData parseArguments(const int argc, const char *const argv[]);
 
-int searchArgument(char *argument);
-
-struct EnvironmentData parseArguments(int argc, char *argv[]);
+//------------------------------------------------------------------------------
+// GLOBAL VARIABLES
+//------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
 // END

@@ -1,52 +1,44 @@
-#ifndef __JSONNY
-#define __JSONNY
-
 //------------------------------------------------------------------------------
 // LIBRARIES
 //------------------------------------------------------------------------------
 
-#include <stdbool.h>
-
-//------------------------------------------------------------------------------
-// X MACRO
-//------------------------------------------------------------------------------
+#include <string.h>
+#include "keywords.h"
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-// USER TYPES
-//------------------------------------------------------------------------------
-
-// Flags used to pass information to main function
-struct FlagOptions {
-	bool error;
-	bool lex;
-	bool print;
-	bool file;
-};
-
-// Enviroment data passed to command functions
-struct EnvironmentData {
-	const char *const software;
-	const char *const version;
-	char *fileName;
-	struct FlagOptions flag;
-};
-
-//------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
-
-char *getContentFromFile(const char *const name);
-void printError(struct EnvironmentData *const env, const char *const msg, ...);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
+static const char *keyList[KEY_COUNT] = {
+	X_KEYWORDS(X_KEY_EXPAND_TABLE)
+};
+
+//------------------------------------------------------------------------------
+// FUNCTIONS
+//------------------------------------------------------------------------------
+
+int isKeyword(const char *const string, const size_t length)
+{
+	// Sequential search in the list of keywords
+	for (int keyIndex = 0; keyIndex < KEY_COUNT; keyIndex++) {
+		if (length == strlen(keyList[keyIndex])) {
+			if (!strncmp(string, keyList[keyIndex], length)) {
+				return keyIndex;
+			}
+		}
+	}
+	// Isn't a keyword
+	return -1;
+}
+
 //------------------------------------------------------------------------------
 // END
 //------------------------------------------------------------------------------
-#endif // __JSONNY

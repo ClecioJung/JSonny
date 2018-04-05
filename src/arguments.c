@@ -5,26 +5,38 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "definitions.h"
 #include "arguments.h"
+
+//------------------------------------------------------------------------------
+// FUNCTION PROTOTYPES
+//------------------------------------------------------------------------------
+
+void setFileName(const struct ArgParameters *const this, struct EnvironmentData *env);
+void printVersion(const struct ArgParameters *const this, struct EnvironmentData *env);
+void printUsage(const struct ArgParameters *const this, struct EnvironmentData *env);
+void setLexOption(const struct ArgParameters *const this, struct EnvironmentData *env);
+void setPrintOption(const struct ArgParameters *const this, struct EnvironmentData *env);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
 static const struct ArgCmd argList[ARG_COUNT] = {
-	X_ARGUMENTS(X_ARG_EXPAND_INIT_TABLE)
+	X_ARGUMENTS(X_ARG_EXPAND_TABLE)
 };
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-void setFileName(struct ArgParameters *this, struct EnvironmentData *env)
+void setFileName(const struct ArgParameters *const this, struct EnvironmentData *env)
 {
 	if (this->parameter) {
 		if (strstr(this->parameter, ".js")) {
 			// Save name of the file
 			env->fileName = this->parameter;
+			env->flag.file = true;
 		} else {
 			printError(env, "The file especified %s must be at format \'.js\'.\n", this->parameter);
 		}
@@ -33,12 +45,12 @@ void setFileName(struct ArgParameters *this, struct EnvironmentData *env)
 	}
 }
 
-void printVersion(struct ArgParameters *this, struct EnvironmentData *env)
+void printVersion(const struct ArgParameters *const this, struct EnvironmentData *env)
 {
 	printf("Version: %s\n", env->version);
 }
 
-void printUsage(struct ArgParameters *this, struct EnvironmentData *env)
+void printUsage(const struct ArgParameters *const this, struct EnvironmentData *env)
 {
 	printf("Usage: %s [Options] [-f script.js | --file script.js | script.js]\n", env->software);
 	printf("\n[Options]:\n");
@@ -47,16 +59,25 @@ void printUsage(struct ArgParameters *this, struct EnvironmentData *env)
 	}
 }
 
-void setLexOption(struct ArgParameters *this, struct EnvironmentData *env)
+void setLexOption(const struct ArgParameters *const this, struct EnvironmentData *env)
 {
-	if (!env->fileName) {
+	if (!env->flag.file) {
 		printError(env, "You need to load a script file to use %s option.\n", this->argument);
 	} else {
 		env->flag.lex = true;
 	}
 }
 
-int searchArgument(char *argument)
+void setPrintOption(const struct ArgParameters *const this, struct EnvironmentData *env)
+{
+	if (!env->flag.file) {
+		printError(env, "You need to load a script file to use %s option.\n", this->argument);
+	} else {
+		env->flag.print = true;
+	}
+}
+
+int searchArgument(const char *const argument)
 {
 	for (unsigned int argIndex = 0; argIndex < ARG_COUNT; argIndex++) {
 		size_t length = strlen(argument);
@@ -64,12 +85,11 @@ int searchArgument(char *argument)
 			return argIndex;
 		}
 	}
-
 	// If parameter not found, return -1
 	return -1;
 }
 
-struct EnvironmentData parseArguments(int argc, char *argv[])
+struct EnvironmentData parseArguments(const int argc, const char *const argv[])
 {
 	int argIndex, argFound;
 	char *argument, *parameter;
@@ -125,6 +145,7 @@ struct EnvironmentData parseArguments(int argc, char *argv[])
 
 	return env;
 }
+
 //------------------------------------------------------------------------------
 // END
 //------------------------------------------------------------------------------

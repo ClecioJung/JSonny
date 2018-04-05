@@ -6,14 +6,28 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include "definitions.h"
 #include "jsonny.h"
 #include "arguments.h"
+#include "lex.h"
+
+//------------------------------------------------------------------------------
+// DEFINITIONS
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// FUNCTION PROTOTYPES
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+// GLOBAL VARIABLES
+//------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-char *getContentFromFile(char *name)
+char *getContentFromFile(const char *const name)
 {
 	char *buffer = NULL;
 	size_t fileSize, result;
@@ -40,14 +54,12 @@ char *getContentFromFile(char *name)
 				buffer = NULL;
 			}
 		}
-
 		fclose(file);
 	}
-
 	return buffer;
 }
 
-void printError(struct EnvironmentData *env, const char* msg, ...)
+void printError(struct EnvironmentData *const env, const char *const msg, ...)
 {
 	va_list args;
 	char *str;
@@ -74,15 +86,38 @@ void printError(struct EnvironmentData *env, const char* msg, ...)
 // MAIN
 //------------------------------------------------------------------------------
 
-int main(int argc, char *argv[])
+int main(const int argc, const char *const argv[])
 {
-	struct EnvironmentData env = parseArguments(argc, argv);
-	if (env.flag.error) {
-		return EXIT_FAILURE;
-	} else {
+	char *prog = NULL;
+	struct TokenList tokens = {
+		.list = NULL,
+	};
 
+	struct EnvironmentData env = parseArguments(argc, argv);
+	if ((!env.flag.error) && (env.flag.file)) {
+		// Read data from file
+		prog = getContentFromFile(env.fileName);
+		if (!prog) {
+			printError(&env, "The specified file couldn't be loaded.\n");
+		} else {
+			// Lexical analysis
+			tokens = lex(&env, prog);
+
+			// Run options specified by user
+			if (env.flag.lex) {
+				printTokenList(&tokens);
+			} else if (env.flag.print) {
+				printColoredCode(prog, &tokens);
+			}
+		}
 	}
 
+	// Free alocated memory and exit
+	free(prog);
+	free(tokens.list);
+	if (env.flag.error) {
+		return EXIT_FAILURE;
+	}
 	return EXIT_SUCCESS;
 }
 //------------------------------------------------------------------------------
