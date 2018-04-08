@@ -4,16 +4,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
-#include "definitions.h"
 #include "jsonny.h"
 #include "arguments.h"
-#include "lex.h"
-
-//------------------------------------------------------------------------------
-// DEFINITIONS
-//------------------------------------------------------------------------------
+#include "print.h"
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
@@ -27,14 +21,14 @@
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-char *getContentFromFile(const char *const name)
+static inline char *getContentFromFile(const char *const name)
 {
 	char *buffer = NULL;
 	size_t fileSize, result;
-	FILE *file = NULL;
+	FILE *file;
 
 	file = fopen(name, "r");
-	if (file != NULL) {
+	if (file) {
 
 		// Get file size
 		fseek(file, 0, SEEK_END);
@@ -42,11 +36,12 @@ char *getContentFromFile(const char *const name)
 		rewind(file);
 
 		// Allocate memory to store the entire file
-		buffer = (char *) malloc(fileSize*sizeof(char));
-		if (buffer != NULL) {
+		buffer = (char *) malloc((fileSize+1)*sizeof(char));
+		if (buffer) {
 
 			// Copy the contents of the file to the buffer
-			result = fread(buffer, 1, fileSize, file);
+			result = fread(buffer, sizeof(char), fileSize, file);
+			buffer[fileSize] = '\0';
 			if (result != fileSize) {
 
 				// Reading file error, free dinamically allocated memory
@@ -59,27 +54,17 @@ char *getContentFromFile(const char *const name)
 	return buffer;
 }
 
-void printError(struct EnvironmentData *const env, const char *const msg, ...)
+static inline void loadFile(const char *const name, struct EnvironmentData *const env)
 {
-	va_list args;
-	char *str;
-	size_t length;
-
-	// Print Error in the begining of the message
-	length = strlen(ERROR_MSG) + strlen(msg) + 1;
-	str = (char *) malloc(length);
-	strcpy(str, ERROR_MSG);
-	strcat(str, msg);
-
-	// Print message into stderr
-	va_start (args, msg);
-	vfprintf (stderr, str, args);
-	va_end (args);
-
-	free(str);
-
-	// Set error flag
-	env->flag.error = true;
+	if (strstr(name, ".js")) {
+		env->fileName = name;
+		env->prog = getContentFromFile(env->fileName);
+		if (!env->prog) {
+			printCrash("The specified file couldn't be loaded.\n");
+		}
+	} else {
+		printCrash("The file especified %s must be at format \'.js\'.\n", name);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -88,34 +73,47 @@ void printError(struct EnvironmentData *const env, const char *const msg, ...)
 
 int main(const int argc, const char *const argv[])
 {
-	char *prog = NULL;
-	struct TokenList tokens = {
-		.list = NULL,
+	struct EnvironmentData env = {
+		.software = argv[0],
+		.fileName = NULL,
+		.prog = NULL,
+		.tokens = {
+			.list = NULL,
+			.lastIndex = 0,
+			.size = 0,
+		},
 	};
 
-	struct EnvironmentData env = parseArguments(argc, argv);
-	if ((!env.flag.error) && (env.flag.file)) {
-		// Read data from file
-		prog = getContentFromFile(env.fileName);
-		if (!prog) {
-			printError(&env, "The specified file couldn't be loaded.\n");
-		} else {
-			// Lexical analysis
-			tokens = lex(&env, prog);
-
-			// Run options specified by user
-			if (env.flag.lex) {
-				printTokenList(&tokens);
-			} else if (env.flag.print) {
-				printColoredCode(prog, &tokens);
+	if (argc < 2) {
+		printCrash("You must specify the action to be taken by command line.\n");
+	} else {
+		int argIndex = 1;
+		if (argv[argIndex][0] != '-') {
+			loadFile(argv[argIndex], &env);
+			argIndex++;
+		}
+		if (argIndex < (argc-1)) {
+			printCrash("To many arguments in command line.\n");
+		} else if (!isSomethingWrong()) {
+			if (argv[argIndex]) {
+				int argFound = searchArgument(argv[argIndex]);
+				if (argFound >= 0) {
+					argList[argFound].function(argv[argIndex], &env);
+				} else {
+					printCrash("Unknown command: %s.\n", argv[argIndex]);
+				}
+			} else {
+				// Default action
+				argPrintCode("this", &env);
 			}
 		}
 	}
 
 	// Free alocated memory and exit
-	free(prog);
-	free(tokens.list);
-	if (env.flag.error) {
+	free(env.prog);
+	free(env.tokens.list);
+	if (isSomethingWrong()) {
+		printUsage(env.software);
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;

@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------
 
 #include <stdbool.h>
+#include "lex.h"
 
 //------------------------------------------------------------------------------
 // X MACRO
@@ -19,28 +20,17 @@
 // USER TYPES
 //------------------------------------------------------------------------------
 
-// Flags used to pass information to main function
-struct FlagOptions {
-	bool error;
-	bool lex;
-	bool print;
-	bool file;
-};
-
-// Enviroment data passed to command functions
 struct EnvironmentData {
 	const char *const software;
-	const char *const version;
-	char *fileName;
-	struct FlagOptions flag;
+	const char *fileName;
+	char *prog;
+	bool error;
+	struct TokenList tokens;
 };
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
-
-char *getContentFromFile(const char *const name);
-void printError(struct EnvironmentData *const env, const char *const msg, ...);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES

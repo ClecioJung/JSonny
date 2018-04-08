@@ -56,7 +56,6 @@ $(EXEC): $(OBJ)
 	@ echo "${GREEN}Building binary: ${BOLD}$@${GREEN} using dependencies: ${BOLD}$^${NORMAL}"
 	@ $(COMPILE.c) $(filter %.c %.s %.o,$^) -o $@
 	@ touch $@
-	@ echo "${GREEN}Finished building binary: ${BOLD}$@ ${NORMAL}"
 
 $(ODIR)/%.o : $(SDIR)/%.c
 $(ODIR)/%.o : $(SDIR)/%.c $(DDIR)/%.d

@@ -4,204 +4,183 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
-#include "keywords.h"
 #include "lex.h"
+#include "jsonny.h"
+#include "print.h"
+#include "keywords.h"
+#include "delimiters.h"
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
 //------------------------------------------------------------------------------
 
-#define MAX(X,Y)						(((X) > (Y)) ? (X) : (Y))
-
-#define MAX_STRING						20
-
-#define IS_SPACE(X)						(strchr(" \t\n\r", (X)))
-#define IS_DELIMITER(X)					(strchr("+-*/%%!=><&|~^?:{}[]();,.", (X)))
-#define IS_NUMBER(X)					(isdigit((X)) || ((X) == '.'))
+// Macro used in lex() to simpify the code
+#define LAST_TOKEN(ENV)					((ENV)->tokens.list[(ENV)->tokens.lastIndex])
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
-static const struct LexToken tokList[TOK_COUNT] = {
-	X_TOKENS(X_TOK_EXPAND_TABLE)
-};
-
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-int beginWhiteSpace(const char *const code) {
+static int beginWhiteSpace(const char *const code) {
 	if (IS_SPACE(*code)) {
 		return 0;
 	}
 	return -1;
 }
-int endWhiteSpace(const char *const code) {
+static int endWhiteSpace(const char *const code) {
 	if (!((*code) && IS_SPACE(*code))) {
 		return 0;
 	}
 	return -1;
 }
 
-int beginMultiLineComment(const char *const code) {
+static int beginMultiLineComment(const char *const code) {
 	if (!strncmp(code, "/*", 2)) {
 		return 2;
 	}
 	return -1;
 }
-int endMultiLineComment(const char *const code) {
+static int endMultiLineComment(const char *const code) {
 	if (!strncmp(code, "*/", 2)) {
 		return 2;
 	}
 	return -1;
 }
 
-int beginLineComment(const char *const code) {
+static int beginLineComment(const char *const code) {
 	if (!strncmp(code, "//", 2)) {
 		return 2;
 	}
 	return -1;
 }
-int endLineComment(const char *const code) {
+static int endLineComment(const char *const code) {
 	if ((*code == '\n') && (*(code-1) != '\\')) {
 		return 0;
 	}
 	return -1;
 }
 
-int isString(const char *const code) {
+static int isString(const char *const code) {
 	if (*code == '"') {
 		return 1;
 	}
 	return -1;
 }
-int isApostropheString(const char *const code) {
+static int isApostropheString(const char *const code) {
 	if (*code == '\'') {
 		return 1;
 	}
 	return -1;
 }
-char *testString(const char *const code) {
+static char *testString(const char *const code) {
 	if ((*code == '\n') && (*(code-1) != '\\')) {
 		return "String not properly defined.\n";
 	}
 	return NULL;
 }
 
-int beginDelimiter(const char *const code) {
-	if (IS_DELIMITER(*code)) {
-		return 1;
-	}
-	return -1;
-}
-int endDelimiter(const char *const code) {
-	if (!((*code) && IS_DELIMITER(*code))) {
-		return 0;
-	}
-	return -1;
-}
-
-int beginNumber(const char *const code) {
+static int beginNumber(const char *const code) {
 	if (IS_NUMBER(*code)) {
 		return 1;
 	}
 	return -1;
 }
-int endNumber(const char *const code) {
-	if (!((*code) && IS_NUMBER(*code))) {
+static int endNumber(const char *const code) {
+	if (!((*code) && IS_FLOAT_NUMBER(*code))) {
 		return 0;
 	}
 	return -1;
 }
 
-int beginIdentifier(const char *const code) {
+static int beginIdentifier(const char *const code) {
 	if ((isalpha(*code)) || (*code == '_')) {
 		return 1;
 	}
 	return -1;
 }
-int endIdentifier(const char *const code) {
+static int endIdentifier(const char *const code) {
 	if (!((isalnum(*code)) || (*code == '_'))) {
 		return 0;
 	}
 	return -1;
 }
 
-void printLineString(const char *string, const int length)
+static inline size_t max(const size_t x, const size_t y)
 {
-	for (int i = 0; i < length; i++, string++) {
-		if ((*string == '\n') || (i >= MAX_STRING)) {
-			printf("...");
-			break;
-		}
-		putchar(*string);
-	}
+	return (((x) > (y)) ? (x) : (y));
 }
 
-void printTokenList(const struct TokenList *const tokens)
+static inline bool realocateTokenList(struct TokenList *const tokens)
 {
-	printf("Line\tCol\tToken Type\tValue\n");
-	for (unsigned int tokenIndex = 0; tokenIndex < tokens->lastIndex; tokenIndex++) {
-		if (tokens->list[tokenIndex].type != SPACE) {
-			printf("%u\t", tokens->list[tokenIndex].line);
-			printf("%u\t", tokens->list[tokenIndex].col);
-			printf("%s\t", tokList[tokens->list[tokenIndex].type].name);
-			printLineString(tokens->list[tokenIndex].string, tokens->list[tokenIndex].length);
-			putchar('\n');
+	if (tokens->lastIndex >= tokens->size) {
+		tokens->size = 2*max(tokens->size, 1);
+		struct Token *newList = (struct Token *) realloc(tokens->list, tokens->size*sizeof(struct Token));
+		if (!newList) {
+			free(tokens->list);
+			tokens->list = NULL;
+			tokens->size = tokens->lastIndex = 0;
+			return false;
 		}
+		tokens->list = newList;
 	}
+	return true;
 }
 
-void printColoredCode(const char *code, const struct TokenList *const tokens)
+/* Treat particular cases and return true if the token was unknown and
+discovered here, so that the calling function can update next character
+position, because the token length was also discovered */
+static inline bool treatParticularTokens(struct Token *const token)
 {
-	unsigned int tokenIndex = 0;
-	while (*code) {
-		if (code >= tokens->list[tokenIndex].string) {
-			printf("%s", tokList[tokens->list[tokenIndex].type].color);
-			tokenIndex++;
+	// An identifier can be a keyword
+	if (token->type == IDENTIFIER) {
+		token->subToken = isKeyword(token->string, token->length);
+		if (token->subToken != -1) {
+			token->type = KEYWORD;
 		}
-		putchar(*code);
-		code++;
 	}
+	// If the token is not known yet, is length is also unknown, so return true
+	else if (token->type == UNKNOWN) {
+		// If no token mathes, can be a delimiter
+		token->subToken = isDelimiter(token->string, &token->length);
+		if (token->subToken != -1) {
+			token->type = DELIMITER;
+			return true;
+		}
+	}
+
+	return false;
 }
 
-struct TokenList lex(struct EnvironmentData *const env, const char *code)
+void lex(struct EnvironmentData *const env)
 {
+	unsigned int line = 1, col = 1;
 	static const struct TokenCondition testTokCondition[TEST_COUNT] = {
 		X_TEST_TOK(X_TEST_EXPAND_TABLE)
 	};
-	unsigned int line = 1, col = 1;
-	struct TokenList tokens = {
-		.list = NULL,
-		.lastIndex = 0,
-		.size = 0,
-	};
 
-	while (*code) {
+	for (const char *code = env->prog; *code; env->tokens.lastIndex++) {
+
 		// Allocates more memory if necessary
-		if (tokens.lastIndex >= tokens.size) {
-			tokens.size = 2*MAX(tokens.size, 1);
-			struct Token *newList = (struct Token *) realloc(tokens.list, tokens.size*sizeof(struct Token));
-			if (!newList) {
-				printError(env, "Lexical analysis error.\n");
-				free(tokens.list);
-				tokens.list = NULL;
-				tokens.size = tokens.lastIndex = 0;
-				break;
-			}
-			tokens.list = newList;
+		if (!realocateTokenList(&env->tokens)) {
+			printCrash("Lexical analysis error.\n");
+			break;
 		}
 
 		// Initializes next token
-		tokens.list[tokens.lastIndex] = (struct Token) {
+		LAST_TOKEN(env) = (struct Token) {
 			.type = UNKNOWN,
 			.string = code,
 			.length = 0,
 			.line = line,
 			.col = col,
+			.subToken = 0,
 		};
 
 		// Find type of next token
@@ -210,9 +189,9 @@ struct TokenList lex(struct EnvironmentData *const env, const char *code)
 			// If found the token type
 			int length = testTokCondition[testIndex].begin(code);
 			if (length != -1) {
-				tokens.list[tokens.lastIndex].type = testTokCondition[testIndex].type;
-				code += length;
+				LAST_TOKEN(env).type = testTokCondition[testIndex].type;
 				col += length;
+				code += length;
 
 				// While isn't the end of current token
 				while ((length = testTokCondition[testIndex].end(code)) == -1) {
@@ -221,22 +200,22 @@ struct TokenList lex(struct EnvironmentData *const env, const char *code)
 					if (testTokCondition[testIndex].error) {
 						char *msg = testTokCondition[testIndex].error(code);
 						if (msg) {
-							printError(env, msg);
+							printError(LAST_TOKEN(env).line, LAST_TOKEN(env).col, msg);
 							length = 0;
 							break;
 						}
 					}
 
-					// If the end of file is found in midle of a token
+					// If the end of file is found in midlle of a token
 					if (!*code) {
-						printError(env, "Didn't reach the end of current definition.\n");
+						printError(LAST_TOKEN(env).line, LAST_TOKEN(env).col, "Didn't reach the end of current definition.\n");
 						length = 0;
 						break;
 					}
 
 					// Go to next character
 					col++;
-					if (*code == '\n') {
+					if (IS_NEW_LINE(*code)) {
 						line++;
 						col = 1;
 					}
@@ -244,31 +223,25 @@ struct TokenList lex(struct EnvironmentData *const env, const char *code)
 				}
 
 				// Reach the end of current token
-				code += length;
 				col += length;
-				tokens.list[tokens.lastIndex].length = code - tokens.list[tokens.lastIndex].string;
+				code += length;
+				LAST_TOKEN(env).length = code - LAST_TOKEN(env).string;
 				break;
 			}
 		}
 
-		// Particular case: an identifier can be a keyword
-		if (tokens.list[tokens.lastIndex].type == IDENTIFIER) {
-			if (isKeyword(tokens.list[tokens.lastIndex].string, tokens.list[tokens.lastIndex].length) != -1) {
-				tokens.list[tokens.lastIndex].type = KEYWORD;
-			}
+		// Treat particular cases
+		if (treatParticularTokens(&LAST_TOKEN(env))) {
+			col += LAST_TOKEN(env).length;
+			code += LAST_TOKEN(env).length;
 		}
 
-		// If no token is found
-		if (tokens.list[tokens.lastIndex].type == UNKNOWN) {
-			printError(env, "Ilegal definition.\n");
+		// If the token is still unknown, break the loop
+		if (LAST_TOKEN(env).type == UNKNOWN) {
+			printError(LAST_TOKEN(env).line, LAST_TOKEN(env).col, "Ilegal definition.\n");
 			break;
 		}
-
-		// Go to next token
-		tokens.lastIndex++;
 	}
-
-	return tokens;
 }
 
 //------------------------------------------------------------------------------

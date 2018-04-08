@@ -1,71 +1,44 @@
-#ifndef __KEYWORDS
-#define __KEYWORDS
+#ifndef __PRINT
+#define __PRINT
 
 //------------------------------------------------------------------------------
 // LIBRARIES
 //------------------------------------------------------------------------------
 
+#include "definitions.h"
+#include "lex.h"
+
 //------------------------------------------------------------------------------
 // X MACRO
 //------------------------------------------------------------------------------
-
-/*  List of interpretable keywords
-- Example:
-X(keywords,		STATE_NAME)
-*/
-#define X_KEYWORDS(X) \
-X("break",			BREAK			) \
-X("case",			CASE			) \
-X("catch",			CATCH			) \
-X("const",			CONST			) \
-X("continue",		CONTINUE		) \
-X("default",		DEFAULT		) \
-X("delete",			DELETE 		) \
-X("do",				DO 			) \
-X("else",			ELSE 			) \
-X("false",			FALSE 		) \
-X("final",			FINAL 		) \
-X("finally",		FINALLY 		) \
-X("for",				FOR 			) \
-X("function",		FUNCTION 	) \
-X("if",				IF 			) \
-X("in",				IN 			) \
-X("instanceof",	INSTANCE_OF ) \
-X("let",				LET 			) \
-X("new",				NEW 			) \
-X("return",			RETURN 		) \
-X("switch",			SWITCH 		) \
-X("this",			THIS 			) \
-X("throw",			THROW 		) \
-X("true",			TRUE 			) \
-X("try",				TRY 			) \
-X("typeof",			TYPEOF 		) \
-X("var",				VAR 			) \
-X("while",			WHILE 		)
-
-// Auxiliar definitions for keywords X MACRO
-#define X_KEY_EXPAND_TABLE(a,b)			a,
-#define X_KEY_EXPAND_TYPE(a,b)			b,
-#define X_KEY_EXPAND_COUNT(a,b)			+1
-#define KEY_COUNT								(0 X_KEYWORDS(X_KEY_EXPAND_COUNT))
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
 //------------------------------------------------------------------------------
 
+// Header to anounce to the user the meaning of current message
+#define CRASH_HEADER							BOLD_FONT RED_FOREGROUND "[Crash] " RESET_FONT
+#define ERROR_HEADER							BOLD_FONT RED_FOREGROUND "[Error] " RESET_FONT
+#define WARNING_HEADER						BOLD_FONT MAGENTA_FOREGROUND "[Warning] " RESET_FONT
+#define USAGE_HEADER							BOLD_FONT BLUE_FOREGROUND "[Usage] " RESET_FONT
+#define VERSION_HEADER						BOLD_FONT BLUE_FOREGROUND "[Version] " RESET_FONT
+
 //------------------------------------------------------------------------------
 // USER TYPES
 //------------------------------------------------------------------------------
-
-enum KeywordType {
-	X_KEYWORDS(X_KEY_EXPAND_TYPE)
-};
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
 
-int isKeyword(const char *const string, const size_t length);
+bool isSomethingWrong(void);
+void printCrash(const char *const msg, ...);
+void printError(const unsigned int line, const unsigned int col, const char *const msg, ...);
+void printWarning(const unsigned int line, const unsigned int col, const char *const msg, ...);
+void printUsage(const char *const software);
+void printVersion(void);
+void printTokenList(struct TokenList *const tokens);
+void printColoredCode(const char *code, struct TokenList *const tokens);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -74,4 +47,4 @@ int isKeyword(const char *const string, const size_t length);
 //------------------------------------------------------------------------------
 // END
 //------------------------------------------------------------------------------
-#endif // __KEYWORDS
+#endif // __PRINT

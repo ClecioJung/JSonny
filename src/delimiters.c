@@ -3,7 +3,7 @@
 //------------------------------------------------------------------------------
 
 #include <string.h>
-#include "keywords.h"
+#include "delimiters.h"
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
@@ -17,18 +17,17 @@
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-int isKeyword(const char *const string, const size_t length)
+int isDelimiter(const char *const string, int *const length)
 {
-	static const char *keyList[KEY_COUNT] = {
-		X_KEYWORDS(X_KEY_EXPAND_TABLE)
+	static const char *delimiterList[DELIM_COUNT] = {
+		X_DELIMITERS(X_DELIM_EXPAND_TABLE)
 	};
 
 	// Sequential search in the list
-	for (int index = 0; index < KEY_COUNT; index++) {
-		if (length == strlen(keyList[index])) {
-			if (!strncmp(string, keyList[index], length)) {
-				return index;
-			}
+	for (int index = 0; index < DELIM_COUNT; index++) {
+		*length = strlen(delimiterList[index]);
+		if (!strncmp(string, delimiterList[index], *length)) {
+			return index;
 		}
 	}
 	// Wasn't found

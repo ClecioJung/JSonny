@@ -15,19 +15,18 @@
 /*  List of arguments interpreted by the main function
 - Insert commands in the order to be executed
 - Example:
-X(name,		parameter,	function,		"usage")
+X(name,		function,		"usage")
 */
 #define X_ARGUMENTS(X) \
-X(version,	false,		printVersion,	"Print software version.") \
-X(help,		false,		printUsage,		"Print this help message.") \
-X(file,		true,		setFileName,	"Especifies the file to be evaluated.") \
-X(lex,		false,		setLexOption,	"Print in the screen the lexical analysis of the input.") \
-X(print,	false,		setPrintOption,	"Print in the screen the colored code.")
+X(version,	argVersion,		"Print software version.") \
+X(help,		argHelp,			"Print this help message.") \
+X(lex,		argPrintToken,	"Print in the screen the lexical analysis of the input.") \
+X(print,		argPrintCode,	"Print in the screen the colored code.")
 
 // Auxiliar definitions for arguments X MACRO
-#define X_ARG_EXPAND_TABLE(a,b,c,d)		{.cmd = "--" # a, .param = b, .function = c, .usage = d},
-#define X_ARG_EXPAND_COUNT(a,b,c,d)		+1
-#define ARG_COUNT						(0 X_ARGUMENTS(X_ARG_EXPAND_COUNT))
+#define X_ARG_EXPAND_TABLE(a,b,c)		{.cmd = "--" # a, .function = b, .usage = c},
+#define X_ARG_EXPAND_COUNT(a,b,c)		+1
+#define ARG_COUNT								(0 X_ARGUMENTS(X_ARG_EXPAND_COUNT))
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
@@ -37,31 +36,31 @@ X(print,	false,		setPrintOption,	"Print in the screen the colored code.")
 // USER TYPES
 //------------------------------------------------------------------------------
 
-// Struct used to save the arguments received from command line
-struct ArgParameters {
-	char *argument;
-	char *parameter;
-};
-
-typedef void (*ArgFunction)(const struct ArgParameters *const, struct EnvironmentData *);
+typedef void (*ArgFunction)(const char *const, struct EnvironmentData *const);
 
 // Table used to concentrate all the information related to the commands
 struct ArgCmd {
 	char *cmd;
 	ArgFunction function;
 	char *usage;
-	bool param;
 };
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
 
-struct EnvironmentData parseArguments(const int argc, const char *const argv[]);
+int searchArgument(const char *const argument);
+
+void argVersion(const char *const argument, struct EnvironmentData *const env);
+void argHelp(const char *const argument, struct EnvironmentData *const env);
+void argPrintToken(const char *const argument, struct EnvironmentData *const env);
+void argPrintCode(const char *const argument, struct EnvironmentData *const env);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
+
+extern const struct ArgCmd argList[ARG_COUNT];
 
 //------------------------------------------------------------------------------
 // END
