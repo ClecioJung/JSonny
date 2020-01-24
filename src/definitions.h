@@ -6,7 +6,7 @@
 //------------------------------------------------------------------------------
 
 // Software version
-#define __VERSION								"1.0.0"
+#define __VERSION								"0.0.2"
 
 // Font definitions
 #define RESET_FONT							"\033[0m"
@@ -52,6 +52,15 @@
 #define BRIGHT_MAGENTA_BACKGROUND		"\033[105m"
 #define BRIGHT_CYAN_BACKGROUND			"\033[106m"
 #define BRIGHT_WHITE_BACKGROUND			"\033[107m"
+
+// Header to anounce to the user the meaning of current message
+#define CRASH_HEADER							BOLD_FONT RED_FOREGROUND "[Crash] " RESET_FONT
+#define ERROR_HEADER							BOLD_FONT RED_FOREGROUND "[Error] " RESET_FONT
+#define WARNING_HEADER						BOLD_FONT MAGENTA_FOREGROUND "[Warning] " RESET_FONT
+#define USAGE_HEADER							BOLD_FONT BLUE_FOREGROUND "[Usage] " RESET_FONT
+#define VERSION_HEADER						BOLD_FONT BLUE_FOREGROUND "[Version] " RESET_FONT
+#define ABOUT_HEADER              BOLD_FONT BLUE_FOREGROUND "[About] " RESET_FONT
+#define SETTINGS_HEADER						BOLD_FONT BLUE_FOREGROUND "[Settings] " RESET_FONT
 
 //------------------------------------------------------------------------------
 // END

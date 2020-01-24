@@ -1,6 +1,7 @@
 # User files
 .TODO
 .BK
+*.gch
 
 # Prerequisites
 *.d
