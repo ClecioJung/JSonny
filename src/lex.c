@@ -25,16 +25,12 @@
 // USER TYPES
 //------------------------------------------------------------------------------
 
-struct Tok {
+struct Token {
+	int type;
 	const char *string;
 	int length;
 	unsigned int line;
 	unsigned int col;
-};
-
-struct Token {
-	int type;
-	struct Tok tok;
 	int subToken;
 };
 
@@ -72,11 +68,8 @@ static bool isDelimiter(struct Token *const token);
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
-/* This table stores information about each token type,
-is used only by printTokenList() and printColoredCode() */
 // List of token types
 static const struct LexToken tokList[] = {
-	//{"UNKNOWN",			BOLD_FONT RED_FOREGROUND, },
 	{"SPACE",				WHITE_FOREGROUND, 						false, 	isWhiteSpace},
 	{"COMMENT",			CYAN_FOREGROUND, 							true,		isComment},
 	{"STRING",			GREEN_FOREGROUND, 						true,		isString},
@@ -86,15 +79,6 @@ static const struct LexToken tokList[] = {
 	{"DELIMITER",		WHITE_FOREGROUND, 						true,		isDelimiter},
 };
 const int tokCount = sizeof(tokList)/sizeof(tokList[0]);
-
-/*  List of functions to test token types
-- Particular cases must be treated in treatParticularTokens() function
-- This functions must be defined in lex.c before lex(), and isn't necessary to
-create their prototypes
-- Error condition can be defined as NULL, which means no test is made
-- Example:
-X(TOKEN_NAME,	beginCondition,			endCondition,			errorCondition )
-*/
 
 //  List of interpretable keywords
 const char *const keywordList[] = {
@@ -216,7 +200,7 @@ static bool isWhiteSpace(struct Token *const token)
 			nextChar();
 		} while ((*code) && IS_SPACE(*code));
 
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 	}
 	return false;
@@ -237,7 +221,7 @@ static bool isComment(struct Token *const token)
 		} while (strncmp(code, "*/", 2));
 		increaseChar(2);
 
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 
 		// Single line comment
@@ -252,7 +236,7 @@ static bool isComment(struct Token *const token)
 			}
 		} while ((*code) && ((*code != '\n') || (*(code-1) == '\\')));
 
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 	}
 	return false;
@@ -276,7 +260,7 @@ static bool isString(struct Token *const token)
 		} while (*code != initString);
 		nextChar();
 
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 	}
 	return false;
@@ -288,7 +272,7 @@ static bool isNumber(struct Token *const token)
 		do {
 			nextChar();
 		} while ((*code) && IS_FLOAT_NUMBER(*code));
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 	}
 	return false;
@@ -301,7 +285,7 @@ static bool isKeyword(struct Token *const token)
 		size_t length = strlen(keywordList[index]);
 		if (!strncmp(code, keywordList[index], length)) {
 			increaseChar(length);
-			token->tok.length = length;
+			token->length = length;
 			token->subToken = index;
 			return true;
 		}
@@ -315,7 +299,7 @@ static bool isIdentifier(struct Token *const token)
 		do {
 			nextChar();
 		} while ((isalnum(*code)) || (*code == '_') || IS_NUMBER(*code));
-		token->tok.length = code - token->tok.string;
+		token->length = code - token->string;
 		return true;
 	}
 	return false;
@@ -328,7 +312,7 @@ static bool isDelimiter(struct Token *const token)
 		size_t length = strlen(delimiterList[index]);
 		if (!strncmp(code, delimiterList[index], length)) {
 			increaseChar(length);
-			token->tok.length = length;
+			token->length = length;
 			token->subToken = index;
 			return true;
 		}
@@ -369,9 +353,8 @@ void lex(const char *const prog)
 		// Initializes next token
 		tokens.list[tokens.lastIdx] = (struct Token) {
 			.type = -1,
-			.tok = {
-				.string = code, .length = 0, .line = line, .col = col,
-			},
+			.string = code, .length = 0,
+			.line = line, .col = col,
 			.subToken = -1,
 		};
 		// Sequential search to find type of next token
@@ -426,10 +409,10 @@ void printTokenList(void)
 				printf(BOLD_FONT RED_FOREGROUND);
 				name = "UNKNOWN";
 			}
-			printf("%u\t", tokens.list[tkIndex].tok.line);
-			printf("%u\t", tokens.list[tkIndex].tok.col);
+			printf("%u\t", tokens.list[tkIndex].line);
+			printf("%u\t", tokens.list[tkIndex].col);
 			printf("%-15s\t", name);
-			printLineString(tokens.list[tkIndex].tok.string, tokens.list[tkIndex].tok.length);
+			printLineString(tokens.list[tkIndex].string, tokens.list[tkIndex].length);
 			puts(RESET_FONT);
 		}
 	}
@@ -438,7 +421,7 @@ void printTokenList(void)
 void printColoredCode(const char *code)
 {
 	for (unsigned int tkIndex = 0; *code != '\0'; code++) {
-		if (code >= tokens.list[tkIndex].tok.string) {
+		if (code >= tokens.list[tkIndex].string) {
 			if (tokens.list[tkIndex].type >= 0) {
 				printf(RESET_FONT "%s", tokList[tokens.list[tkIndex].type].font);
 			} else { // unknown token
