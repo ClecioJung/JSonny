@@ -1,4 +1,5 @@
 # Based on http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+# Git version: https://stackoverflow.com/questions/1704907/how-can-i-get-my-c-code-to-automatically-print-out-its-git-version-hash
 
 # ----------------------------------------
 # Project definitions
@@ -31,8 +32,11 @@ OBJ = $(subst .c,.o,$(subst $(SDIR),$(ODIR),$(SRC)))
  # Compiler and linker
 CC = gcc
 
+# GIT version
+GIT_VERSION := "$(shell git describe --abbrev=4 --dirty --always --tags)"
+
 # Flags for compiler
-CFLAGS = -W -Wall -pedantic -std=c99
+CFLAGS = -W -Wall -Wextra -pedantic -std=c99 -DVERSION=\"$(GIT_VERSION)\"
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DDIR)/$*.Td
 COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS)
 POSTCOMPILE = mv -f $(DDIR)/$*.Td $(DDIR)/$*.d && touch $@

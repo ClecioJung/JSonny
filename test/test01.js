@@ -8,5 +8,5 @@ if (true) {
 	}
 } else {
 	// Comment line
-	console.log("Erro);
+	console.log("Erro");
 }

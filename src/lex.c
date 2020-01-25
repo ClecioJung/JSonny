@@ -46,8 +46,8 @@ typedef bool (*CheckForToken)(struct Token *const);
 
 // User type used to store token types
 struct LexToken {
-	char *name;
-	char *font;
+	const char *name;
+	const char *font;
 	bool print; // for printTokenList() method
 	CheckForToken check;
 };
@@ -70,6 +70,7 @@ static bool isDelimiter(struct Token *const token);
 
 // List of token types
 static const struct LexToken tokList[] = {
+	{"UNKNOWN",			BOLD_FONT RED_FOREGROUND,			true,		NULL},
 	{"SPACE",				WHITE_FOREGROUND, 						false, 	isWhiteSpace},
 	{"COMMENT",			CYAN_FOREGROUND, 							true,		isComment},
 	{"STRING",			GREEN_FOREGROUND, 						true,		isString},
@@ -352,13 +353,13 @@ void lex(const char *const prog)
 		}
 		// Initializes next token
 		tokens.list[tokens.lastIdx] = (struct Token) {
-			.type = -1,
+			.type = 0,
 			.string = code, .length = 0,
 			.line = line, .col = col,
 			.subToken = -1,
 		};
 		// Sequential search to find type of next token
-		for (int checkIdx = 0; checkIdx < tokCount; checkIdx++) {
+		for (int checkIdx = 1; checkIdx < tokCount; checkIdx++) {
 			// If found the token type
 			if (tokList[checkIdx].check(&tokens.list[tokens.lastIdx])) {
 				tokens.list[tokens.lastIdx].type = checkIdx;
@@ -398,20 +399,13 @@ static inline void printLineString(const char *string, const int length)
 
 void printTokenList(void)
 {
-	const char *name;
 	printf("Line\tColumn\tToken Type\tValue\n");
 	for (unsigned int tkIndex = 0; tkIndex < tokens.lastIdx; tkIndex++) {
 		if (tokList[tokens.list[tkIndex].type].print) {
-			if (tokens.list[tkIndex].type >= 0) {
-				fputs(tokList[tokens.list[tkIndex].type].font, stdout);
-				name = tokList[tokens.list[tkIndex].type].name;
-			} else { // unknown token
-				printf(BOLD_FONT RED_FOREGROUND);
-				name = "UNKNOWN";
-			}
+			fputs(tokList[tokens.list[tkIndex].type].font, stdout);
 			printf("%u\t", tokens.list[tkIndex].line);
 			printf("%u\t", tokens.list[tkIndex].col);
-			printf("%-15s\t", name);
+			printf("%-15s\t", tokList[tokens.list[tkIndex].type].name);
 			printLineString(tokens.list[tkIndex].string, tokens.list[tkIndex].length);
 			puts(RESET_FONT);
 		}
@@ -422,11 +416,6 @@ void printColoredCode(const char *code)
 {
 	for (unsigned int tkIndex = 0; *code != '\0'; code++) {
 		if (code >= tokens.list[tkIndex].string) {
-			if (tokens.list[tkIndex].type >= 0) {
-				printf(RESET_FONT "%s", tokList[tokens.list[tkIndex].type].font);
-			} else { // unknown token
-				printf(RESET_FONT BOLD_FONT RED_FOREGROUND);
-			}
 			printf(RESET_FONT "%s", tokList[tokens.list[tkIndex].type].font);
 			tkIndex++;
 			if (tkIndex > tokens.lastIdx) {
