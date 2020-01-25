@@ -20,7 +20,11 @@
 //------------------------------------------------------------------------------
 
 bool isSomethingWrong(void);
+bool errorsInTheCode(void);
+bool warningsInTheCode(void);
 void printCrash(const char *const msg, ...);
+void printError(struct Positioning pos, const char *const msg, ...);
+void printWarning(struct Positioning pos, const char *const msg, ...);
 
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES

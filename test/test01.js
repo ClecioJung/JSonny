@@ -3,10 +3,13 @@
 */
 
 if (true) {
+	// Comment line
 	for (var i = 0; i < 10; i++) {
-		console.log(i + "\n");
+		console.log(i + '\n');
 	}
 } else {
-	// Comment line
+	// Multi line \
+		comment
 	console.log("Erro");
+	floatNumber = 1.18;
 }

@@ -53,7 +53,7 @@ void setActionCode(void);
 
 const char *software = NULL;
 const char *fileName = NULL;
-const char *prog = NULL;
+const char *fileContends = NULL;
 static bool debug = false;
 enum ActionToBeTaken action = acPrintColoredCode;
 
@@ -183,8 +183,8 @@ int main(const int argc, const char *const argv[])
 	// Load script from file
 	if (action != acNone) {
 		if (fileName) {
-			prog = getContentFromFile(fileName);
-			if (!prog) {
+			fileContends = getContentFromFile(fileName);
+			if (!fileContends) {
 				printCrash("The specified file couldn't be loaded.\n");
 				return EXIT_FAILURE;
 			}
@@ -200,17 +200,17 @@ int main(const int argc, const char *const argv[])
 		case acNone:
 		return EXIT_SUCCESS;
 		case acPrintTokenList:
-		lex(prog);
+		lex(fileContends);
 		printTokenList();
 		break;
 		case acPrintColoredCode:
 		default:
-		lex(prog);
-		printColoredCode(prog);
+		lex(fileContends);
+		printColoredCode(fileContends);
 	}
 
 	// Free alocated memory and exit
-	free((void*)prog);
+	free((void*)fileContends);
 	freeLex();
 	return (isSomethingWrong() ? EXIT_FAILURE : EXIT_SUCCESS);
 }
