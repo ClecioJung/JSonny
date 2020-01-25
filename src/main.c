@@ -11,6 +11,7 @@
 #include "definitions.h"
 #include "errors.h"
 #include "lex.h"
+#include "parser.h"
 
 //------------------------------------------------------------------------------
 // DEFINITIONS
@@ -24,16 +25,17 @@ typedef void (*ArgFunction)(void);
 
 // Table used to concentrate all the information related to the comand line arguments
 struct ArgCmd {
-	ArgFunction function;
 	char cmd;
 	const char *command;
+	ArgFunction function;
 	const char *usage;
 };
 
 enum ActionToBeTaken {
 	acNone = 0,
-	acPrintColoredCode,
 	acPrintTokenList,
+	acPrintColoredCode,
+	acParser,
 };
 
 //------------------------------------------------------------------------------
@@ -51,89 +53,75 @@ void setActionCode(void);
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
-const char *software = NULL;
-const char *fileName = NULL;
-const char *fileContends = NULL;
-static bool debug = false;
-enum ActionToBeTaken action = acPrintColoredCode;
-
 static const struct ArgCmd argList[] = {
-	{printUsage,			'h',	"--help",			"Display this help message."},
-	{printVersion,		'v',	"--version",	"Display the software version."},
-	{printAbout,			'a',	"--about",		"Display information about the software."},
-	{debugModeOn,			'd',	"--debug",		"Turns the debug mode on."},
-	{setActionToken,	'l',	"--lex",			"Display the lexical analysis of the input."},
-	{setActionCode,		'c',	"--code",			"Display the colored code."},
+	{'h',	"--help",			printUsage,			"Display this help message."},
+	{'v',	"--version",	printVersion,		"Display the software version."},
+	{'a',	"--about",		printAbout,			"Display information about the software."},
+	{'d',	"--debug",		debugModeOn,		"Turns the debug mode on."},
+	{'l',	"--lex",			setActionToken,	"Display the lexical analysis of the input."},
+	{'c',	"--code",			setActionCode,	"Display the colored code."},
+	{0}
 };
-static const unsigned int argCount = sizeof(argList)/sizeof(argList[0]);
+static const char *software = NULL;
+static bool debug = false;
+static enum ActionToBeTaken action = acParser;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-void printUsage(void)
-{
+void printUsage(void) {
 	printf(USAGE_HEADER "%s [script.js] [Options]\n", software);
 	printf("\n[Options]:\n");
-	for (unsigned int argIdx = 0; argIdx < argCount; argIdx++) {
+	for (unsigned int argIdx = 0; argList[argIdx].cmd; argIdx++) {
 		printf("   -%c, or %-10s\t%s\n", argList[argIdx].cmd, argList[argIdx].command, argList[argIdx].usage);
 	}
 	action = acNone;
 }
 
-void printVersion(void)
-{
+void printVersion(void) {
 	printf(VERSION_HEADER VERSION "\n");
 	printf("Compilation date: %s\n", __DATE__);
 	action = acNone;
 }
 
-void printAbout(void)
-{
+void printAbout(void) {
 	printf(ABOUT_HEADER "A simple JavaScript interpreter written in C.\n");
 	action = acNone;
 }
 
-void debugModeOn(void)
-{
+void debugModeOn(void) {
 	printf(SETTINGS_HEADER "Debug mode on.\n");
 	debug = true;
 }
 
-void setActionToken(void)
-{
+void setActionToken(void) {
 	action = acPrintTokenList;
 }
 
-void setActionCode(void)
-{
+void setActionCode(void) {
 	action = acPrintColoredCode;
 }
 
-static void parseArgument(const char *const arg)
-{
+static bool parseArgument(const char *const arg) {
 	if (arg[0] == '-') {
 		const size_t length = strlen(arg);
 		// make sequential search looking for the argument
-		for (unsigned int argIdx = 0; argIdx < argCount; argIdx++) {
+		for (unsigned int argIdx = 0; argList[argIdx].cmd; argIdx++) {
 			if ((!strcmp(arg, argList[argIdx].command)) ||
 			((length == 2) && (arg[1] == argList[argIdx].cmd))) {
 				// found the argument in the list
 				argList[argIdx].function();
-				return;
+				return true;
 			}
 		}
-		// if isn't a argument, only can be a file name
-	} else if (!fileName) {
-		fileName = arg;
-		return;
+		// no valid argument found
+		printCrash("Unknown argument: %s\n", arg);
 	}
-	// no valid argument found
-	printCrash("Unknown argument: %s\n", arg);
+	return false;
 }
 
-static char *getContentFromFile(const char *const name)
-{
+static char *getContentFromFile(const char *const name) {
 	char *buffer = NULL;
 
 	// Get file size
@@ -166,17 +154,22 @@ static char *getContentFromFile(const char *const name)
 // MAIN
 //------------------------------------------------------------------------------
 
-int main(const int argc, const char *const argv[])
-{
+int main(const int argc, const char *const argv[]) {
+	const char *fileName = NULL;
+	const char *fileContends = NULL;
+	struct TokenList *tokens = NULL;
 	software = argv[0];
 
 	// Parse command line arguments
 	for (int argIdx = 1; argIdx < argc; argIdx++) {
-		parseArgument(argv[argIdx]);
-		// If an error ocurred
-		if (isSomethingWrong()) {
-			printUsage();
-			return EXIT_FAILURE;
+		if (!parseArgument(argv[argIdx])) {
+			if (isSomethingWrong() || fileName) {
+				printUsage();
+				return EXIT_FAILURE;
+			} else {
+				// if isn't a argument, only can be a file name
+				fileName = argv[argIdx];
+			}
 		}
 	}
 
@@ -195,23 +188,30 @@ int main(const int argc, const char *const argv[])
 		}
 	}
 
+	if (action >= acPrintTokenList) {
+		tokens = lex(fileContends);
+	}
+
 	// Executes the required action
 	switch (action) {
 		case acNone:
 		return EXIT_SUCCESS;
 		case acPrintTokenList:
-		lex(fileContends);
-		printTokenList();
+		printTokenList(tokens);
 		break;
 		case acPrintColoredCode:
+		printColoredCode(fileContends, tokens);
+		break;
+		case acParser:
 		default:
-		lex(fileContends);
-		printColoredCode(fileContends);
+		parser(tokens);
 	}
 
 	// Free alocated memory and exit
 	free((void*)fileContends);
-	freeLex();
+	free((void*)tokens->list);
+	free((void*)tokens);
+	freeParser();
 	return (isSomethingWrong() ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 //------------------------------------------------------------------------------

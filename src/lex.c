@@ -11,16 +11,7 @@
 #include "definitions.h"
 #include "lex.h"
 #include "errors.h"
-
-//------------------------------------------------------------------------------
-// DEFINITIONS
-//------------------------------------------------------------------------------
-
-#define USE_BINARY_SEARCH_FOR_KEYWORDS 1
-
-//------------------------------------------------------------------------------
-// USER TYPES
-//------------------------------------------------------------------------------
+#include "parser.h"
 
 //------------------------------------------------------------------------------
 // FUNCTION PROTOTYPES
@@ -39,17 +30,17 @@ static bool isDelimiter(struct Token *const token);
 //------------------------------------------------------------------------------
 
 // List of token types
-static const struct LexToken tokList[] = {
-	{"UNKNOWN",			BOLD_FONT RED_FOREGROUND,			true,		NULL},
-	{"SPACE",				WHITE_FOREGROUND, 						false, 	isWhiteSpace},
-	{"COMMENT",			CYAN_FOREGROUND, 							true,		isComment},
-	{"STRING",			GREEN_FOREGROUND, 						true,		isString},
-	{"NUMBER",			YELLOW_FOREGROUND, 						true,		isNumber},
-	{"KEYWORD",			BOLD_FONT BLUE_FOREGROUND, 		true,		isKeyword},
-	{"IDENTIFIER",	BOLD_FONT MAGENTA_FOREGROUND, true,		isIdentifier}, /* Variable or function name */
-	{"DELIMITER",		WHITE_FOREGROUND, 						true,		isDelimiter},
+const struct LexToken tokList[] = {
+	{"UNKNOWN",			BOLD_FONT RED_FOREGROUND,			NULL,					NULL},
+	{"SPACE",				WHITE_FOREGROUND, 						isWhiteSpace,	NULL},
+	{"COMMENT",			CYAN_FOREGROUND, 							isComment,		NULL},
+	{"STRING",			GREEN_FOREGROUND, 						isString,			NULL},
+	{"NUMBER",			YELLOW_FOREGROUND, 						isNumber,			NULL},
+	{"KEYWORD",			BOLD_FONT BLUE_FOREGROUND, 		isKeyword,		NULL},
+	{"IDENTIFIER",	BOLD_FONT MAGENTA_FOREGROUND, isIdentifier,	NULL}, /* Variable or function name */
+	{"DELIMITER",		WHITE_FOREGROUND, 						isDelimiter,	NULL},
+	{0}
 };
-const int tokCount = sizeof(tokList)/sizeof(tokList[0]);
 
 // List of interpretable keywords
 // Insert in alphabetic order, so we can use binary search
@@ -80,20 +71,14 @@ const char *const delimiterList[] = {
 	"?", ":",
 	"{", "}", "(", ")",
 	";", ",", ".",
-};
-const int delimCount = sizeof(delimiterList)/sizeof(delimiterList[0]);
-
-struct TokenList tokens = {
-	.list = NULL,
-	.size = 0
+	0
 };
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-static void increaseCodePosition(struct Positioning *pos, size_t length)
-{
+static void increaseCodePosition(struct Positioning *pos, size_t length) {
 	while (length--) {
 		pos->col++;
 		if (*pos->string == '\n') {
@@ -104,8 +89,7 @@ static void increaseCodePosition(struct Positioning *pos, size_t length)
 	}
 }
 
-static bool isWhiteSpace(struct Token *const token)
-{
+static bool isWhiteSpace(struct Token *const token) {
 	const char *string = token->pos.string;
 	while (isspace(*string)) {
 		string++;
@@ -117,8 +101,7 @@ static bool isWhiteSpace(struct Token *const token)
 	return false;
 }
 
-static bool isComment(struct Token *const token)
-{
+static bool isComment(struct Token *const token) {
 	const char *string = token->pos.string;
 	// Multiline comment
 	if (!strncmp(string, "/*", 2)) {
@@ -154,8 +137,7 @@ static bool isComment(struct Token *const token)
 	return false;
 }
 
-static bool isString(struct Token *const token)
-{
+static bool isString(struct Token *const token) {
 	const char *string = token->pos.string;
 	if (*string == '"' || *string == '\'') {
 		const char initString = *string;
@@ -179,8 +161,7 @@ static bool isString(struct Token *const token)
 	return false;
 }
 
-static bool isNumber(struct Token *const token)
-{
+static bool isNumber(struct Token *const token) {
 	char *numberEnd = (char *) token->pos.string;
 	token->subToken.number = strtod(token->pos.string, &numberEnd);
 	if (numberEnd != token->pos.string) {
@@ -190,9 +171,7 @@ static bool isNumber(struct Token *const token)
 	return false;
 }
 
-static bool isKeyword(struct Token *const token)
-{
-	#if USE_BINARY_SEARCH_FOR_KEYWORDS
+static bool isKeyword(struct Token *const token) {
 	// Binary Search in the list
 	// Based on: https://www.tutorialspoint.com/binary-search-a-string-in-cplusplus
 	const char *string = token->pos.string;
@@ -217,26 +196,11 @@ static bool isKeyword(struct Token *const token)
 			upper = mid - 1;
 		}
 	}
-	#else
-	// Sequential search in the list
-	const char *string = token->pos.string;
-	for (int index = 0; index < keywordCount; index++) {
-		size_t length = strlen(keywordList[index]);
-		if (!isalnum(string[length]) && string[length] != '_' && !isdigit(string[length])) {
-			if (!strncmp(string, keywordList[index], length)) {
-				token->pos.length = length;
-				token->subToken.delimiter = index;
-				return true;
-			}
-		}
-	}
-	#endif
 	// Isn't a keyword
 	return false;
 }
 
-static bool isIdentifier(struct Token *const token)
-{
+static bool isIdentifier(struct Token *const token) {
 	const char *string = token->pos.string;
 	if ((isalpha(*string)) || (*string == '_')) {
 		do {
@@ -248,10 +212,9 @@ static bool isIdentifier(struct Token *const token)
 	return false;
 }
 
-static bool isDelimiter(struct Token *const token)
-{
+static bool isDelimiter(struct Token *const token) {
 	// Sequential search in the list
-	for (int index = 0; index < delimCount; index++) {
+	for (int index = 0; delimiterList[index]; index++) {
 		size_t length = strlen(delimiterList[index]);
 		if (!strncmp(token->pos.string, delimiterList[index], length)) {
 			token->pos.length = length;
@@ -262,80 +225,74 @@ static bool isDelimiter(struct Token *const token)
 	return false;
 }
 
-static inline size_t max(const size_t x, const size_t y)
-{
+static inline size_t max(const size_t x, const size_t y) {
 	return (((x) > (y)) ? (x) : (y));
 }
 
-static bool realocateTokenList(size_t size)
-{
+static bool realocateTokenList(struct TokenList *tokens, size_t size) {
 	if (size) {
-		struct Token *newList = (struct Token *) realloc(tokens.list, size*sizeof(struct Token));
+		struct Token *newList = (struct Token *) realloc(tokens->list, size*sizeof(struct Token));
 		if (!newList) {
-			freeLex();
+			free((void*)tokens->list);
+			tokens->list = NULL;
+			tokens->size = 0;
 			return false;
 		}
-		tokens.list = newList;
-		tokens.size = size;
+		tokens->list = newList;
+		tokens->size = size;
 	}
 	return true;
 }
 
-void lex(const char *const fileContends)
-{
+struct TokenList *lex(const char *const fileContends) {
+	unsigned int tkIndex;
 	struct Positioning pos = {
-		.string = fileContends,
-		.length = 0,
-		.line = 1,
-		.col = 1,
+		.string = fileContends, .length = 0, .line = 1, .col = 1,
 	};
-	for (tokens.lastIdx = 0; *pos.string; tokens.lastIdx++) {
+	struct TokenList *tokens = (struct TokenList *) malloc(sizeof(struct TokenList));
+	tokens->list = NULL;
+	tokens->size = 0;
+
+	for (tkIndex = 0; *pos.string; tkIndex++) {
 
 		// Allocates more memory if necessary
-		if (tokens.lastIdx >= tokens.size) {
-			if (!realocateTokenList(2 * max(tokens.size, 1))) {
+		if (tkIndex >= tokens->size) {
+			if (!realocateTokenList(tokens, 2 * max(tokens->size, 1))) {
 				printCrash("Lexical analysis error.\n");
 				break;
 			}
 		}
 		// Initializes next token
-		tokens.list[tokens.lastIdx] = (struct Token) {
-			.type = 0,
-			.pos = pos,
+		tokens->list[tkIndex] = (struct Token) {
+			.type = TOK_UNKNOWN, .pos = pos,
 		};
 		// Sequential search to find type of next token
-		for (int checkIdx = 1; checkIdx < tokCount; checkIdx++) {
+		for (int checkIdx = TOK_SPACE; tokList[checkIdx].name; checkIdx++) {
 			// If found the token type
-			if (tokList[checkIdx].check(&tokens.list[tokens.lastIdx])) {
-				tokens.list[tokens.lastIdx].type = checkIdx;
-				increaseCodePosition(&pos, tokens.list[tokens.lastIdx].pos.length);
+			if (tokList[checkIdx].check(&tokens->list[tkIndex])) {
+				tokens->list[tkIndex].type = checkIdx;
+				increaseCodePosition(&pos, tokens->list[tkIndex].pos.length);
 				break;
 			}
 		}
+
 		// Stop at the first error found
 		if (errorsInTheCode()) {
 			break;
 		}
 		// If the token is still unknown, break the loop
-		if (!tokens.list[tokens.lastIdx].type) {
-			printError(tokens.list[tokens.lastIdx].pos, "Ilegal definition.\n");
+		if (tokens->list[tkIndex].type == TOK_UNKNOWN) {
+			printError(tokens->list[tkIndex].pos, "Ilegal definition.\n");
 			break;
 		}
 	}
 	// Free unused memory
-	realocateTokenList(tokens.lastIdx);
+	realocateTokenList(tokens, tkIndex);
+	// Return the list of tokens
+	return tokens;
 }
 
-void freeLex(void)
-{
-	free((void*)tokens.list);
-	tokens.list = NULL;
-	tokens.size = 0;
-	tokens.lastIdx = 0;
-}
-
-static inline void printLineString(const char *string, const int length)
-{
+static inline void printLineString(const char *string, const int length) {
 	static const int maxLenString = 20;
 
 	for (int i = 0; i < length; i++, string++) {
@@ -347,35 +304,36 @@ static inline void printLineString(const char *string, const int length)
 	}
 }
 
-void printTokenList(void)
+void printTokenList(struct TokenList *tokens)
 {
 	printf("Line\tColumn\tToken Type\tValue\n");
-	for (unsigned int tkIndex = 0; tkIndex < tokens.lastIdx; tkIndex++) {
-		if (tokList[tokens.list[tkIndex].type].print) {
-			fputs(tokList[tokens.list[tkIndex].type].font, stdout);
-			printf("%u\t", tokens.list[tkIndex].pos.line);
-			printf("%u\t", tokens.list[tkIndex].pos.col);
-			printf("%-15s\t", tokList[tokens.list[tkIndex].type].name);
-			printLineString(tokens.list[tkIndex].pos.string, tokens.list[tkIndex].pos.length);
+	for (unsigned int tkIndex = 0; tkIndex < tokens->size; tkIndex++) {
+		// Doesn't print spaces and unknown tokens
+		if (tokens->list[tkIndex].type > TOK_SPACE) {
+			printf("%s", tokList[tokens->list[tkIndex].type].font);
+			printf("%u\t", tokens->list[tkIndex].pos.line);
+			printf("%u\t", tokens->list[tkIndex].pos.col);
+			printf("%-15s\t", tokList[tokens->list[tkIndex].type].name);
+			printLineString(tokens->list[tkIndex].pos.string, tokens->list[tkIndex].pos.length);
 			puts(RESET_FONT);
 		}
 	}
 }
 
-void printColoredCode(const char *code)
+void printColoredCode(const char *code, struct TokenList *tokens)
 {
 	unsigned int tkIndex = 0;
 	for (; *code != '\0'; code++) {
-		if (code >= tokens.list[tkIndex].pos.string) {
-			printf(RESET_FONT "%s", tokList[tokens.list[tkIndex].type].font);
+		if (code >= tokens->list[tkIndex].pos.string) {
+			printf(RESET_FONT "%s", tokList[tokens->list[tkIndex].type].font);
 			tkIndex++;
-			if (tkIndex >= tokens.lastIdx) {
-				tkIndex = tokens.lastIdx - 1;
+			if (tkIndex >= tokens->size) {
+				tkIndex = tokens->size - 1;
 			}
 		}
 		putchar(*code);
 	}
-	printf(RESET_FONT);
+	puts(RESET_FONT);
 }
 
 //------------------------------------------------------------------------------
