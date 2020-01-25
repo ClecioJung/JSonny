@@ -5,6 +5,11 @@
 // DEFINITIONS
 //------------------------------------------------------------------------------
 
+// Software version
+#ifndef VERSION
+#define VERSION								 "0.1"
+#endif
+
 // Font definitions
 #define RESET_FONT							"\033[0m"
 #define BOLD_FONT								"\033[1m"
