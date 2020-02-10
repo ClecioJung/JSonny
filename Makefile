@@ -1,4 +1,6 @@
 # Based on http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+# https://gist.github.com/maxtruxa/4b3929e118914ccef057f8a05c614b0f
+# https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 # Git version: https://stackoverflow.com/questions/1704907/how-can-i-get-my-c-code-to-automatically-print-out-its-git-version-hash
 
 # ----------------------------------------
@@ -12,18 +14,19 @@ EXEC = JSonny
 ODIR = .obj
 DDIR = .deps
 SDIR = src
+IDIR = src
 
 # .c files
-SRC = $(wildcard $(SDIR)/*.c)
+SRCS = $(wildcard $(SDIR)/*.c $(SDIR)/*.cpp)
 
 # .h files
-INC = $(wildcard $(SDIR)/*.h)
+INCS = $(wildcard $(IDIR)/*.h $(IDIR)/*.hpp)
 
-# .d files
-DEPS = $(subst .c,.d,$(subst $(SDIR),$(DDIR),$(SRC)))
+# Dependency files (auto generated)
+DEPS = $(patsubst %,%.d,$(basename $(subst $(SDIR),$(DDIR),$(SRCS))))
 
 # Object files
-OBJ = $(subst .c,.o,$(subst $(SDIR),$(ODIR),$(SRC)))
+OBJS = $(patsubst %,%.o,$(basename $(subst $(SDIR),$(ODIR),$(SRCS))))
 
 # ----------------------------------------
 # Compiler and linker definitions
@@ -31,14 +34,22 @@ OBJ = $(subst .c,.o,$(subst $(SDIR),$(ODIR),$(SRC)))
 
  # Compiler and linker
 CC = gcc
+CXX = g++
+
+# Libraries
+INCLUDES =
 
 # GIT version
 GIT_VERSION := "$(shell git describe --abbrev=4 --dirty --always --tags)"
 
 # Flags for compiler
 CFLAGS = -W -Wall -Wextra -pedantic -std=c99 -DVERSION=\"$(GIT_VERSION)\"
+CXXFLAGS = -W -Wall -Wextra -pedantic -DVERSION=\"$(GIT_VERSION)\"
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DDIR)/$*.Td
-COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS)
+
+# Compiler macros
+COMPILE.CC = $(CC) $(CFLAGS)
+COMPILE.CXX = $(CXX) $(CXXFLAGS)
 POSTCOMPILE = mv -f $(DDIR)/$*.Td $(DDIR)/$*.d && touch $@
 
 # ----------------------------------------
@@ -54,18 +65,24 @@ GREEN = \033[0;32m
 # Compilation and linking rules
 # ----------------------------------------
 
-all: directories $(EXEC)
+all: $(EXEC)
 
-$(EXEC): $(OBJ)
+$(EXEC): $(OBJS)
 	@ echo "${GREEN}Building binary: ${BOLD}$@${GREEN} using dependencies: ${BOLD}$^${NORMAL}"
-	@ $(COMPILE.c) $(filter %.c %.s %.o,$^) -o $@
+	$(COMPILE.CC) $(filter %.s %.o,$^) -o $@ $(INCLUDES)
 	@ touch $@
 
 $(ODIR)/%.o : $(SDIR)/%.c
-$(ODIR)/%.o : $(SDIR)/%.c $(DDIR)/%.d
+$(ODIR)/%.o : $(SDIR)/%.c $(DDIR)/%.d | $(DDIR) $(ODIR)
 	@ echo "${GREEN}Building target: ${BOLD}$@${GREEN}, using dependencies: ${BOLD}$^${NORMAL}"
-	@ $(COMPILE.c) -c $(filter %.c %.s %.o,$^) -o $@
+	$(COMPILE.CC) $(DEPFLAGS) -c $(filter %.c %.s %.o,$^) -o $@
 	@ $(POSTCOMPILE)
+
+$(ODIR)/%.o : $(SDIR)/%.cpp
+$(ODIR)/%.o : $(SDIR)/%.cpp $(DDIR)/%.d | $(DDIR) $(ODIR)
+		@ echo "${GREEN}Building target: ${BOLD}$@${GREEN}, using dependencies: ${BOLD}$^${NORMAL}"
+		$(COMPILE.CXX) $(DEPFLAGS) -c $(filter %.cpp %.s %.o,$^) -o $@
+		@ $(POSTCOMPILE)
 
 $(DDIR)/%.d: ;
 .PRECIOUS: $(DDIR)/%.d
@@ -78,11 +95,11 @@ $(DDIR)/%.d: ;
 
 status:
 	@ echo "${GREEN}Git project status:${NORMAL}"
-	@ git status -s
+	git status -s
 
 log:
 	@ echo "${GREEN}Git project log:${NORMAL}"
-	@ git log --oneline --decorate --all --graph
+	git log --oneline --decorate --all --graph
 
 commit-%:
 	@ echo "${GREEN}Inserting new commit to git project:${NORMAL}"
@@ -90,9 +107,11 @@ commit-%:
 	git commit -m "$(@:commit-%=%)"
 	git push origin master
 
-directories:
-	@ mkdir -p $(DDIR)
-	@ mkdir -p $(ODIR)
+$(DDIR):
+	mkdir -p $@
+
+$(ODIR):
+	mkdir -p $@
 
 run:
 	@ echo "${GREEN}Testing the aplication:${NORMAL}"
@@ -102,10 +121,10 @@ memcheck:
 	valgrind --tool=memcheck ./$(EXEC) test/test01.js
 
 clean:
-	@ rm -fr $(ODIR)/ $(DDIR)/ $(EXEC) *~ env.mk
+	rm -fr $(ODIR)/ $(DDIR)/ $(EXEC) *~ env.mk
 
 remade: clean all
 
-.PHONY: all status log commit-% directories run memcheck clean remade
+.PHONY: all status log commit-% run memcheck clean remade
 
 # ----------------------------------------

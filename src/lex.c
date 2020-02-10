@@ -31,15 +31,15 @@ static bool isDelimiter(struct Token *const token);
 
 // List of token types
 const struct LexToken tokList[] = {
-	{"UNKNOWN",			BOLD_FONT RED_FOREGROUND,			NULL,					NULL},
-	{"SPACE",				WHITE_FOREGROUND, 						isWhiteSpace,	NULL},
-	{"COMMENT",			CYAN_FOREGROUND, 							isComment,		NULL},
-	{"STRING",			GREEN_FOREGROUND, 						isString,			NULL},
-	{"NUMBER",			YELLOW_FOREGROUND, 						isNumber,			NULL},
-	{"KEYWORD",			BOLD_FONT BLUE_FOREGROUND, 		isKeyword,		NULL},
-	{"IDENTIFIER",	BOLD_FONT MAGENTA_FOREGROUND, isIdentifier,	NULL}, /* Variable or function name */
-	{"DELIMITER",		WHITE_FOREGROUND, 						isDelimiter,	NULL},
-	{0}
+	[TOK_UNKNOWN] = 		{"UNKNOWN",			BOLD_FONT RED_FOREGROUND,			NULL,					NULL},
+	[TOK_SPACE] = 			{"SPACE",				WHITE_FOREGROUND, 						isWhiteSpace,	NULL},
+	[TOK_COMMENT] = 		{"COMMENT",			CYAN_FOREGROUND, 							isComment,		NULL},
+	[TOK_STRING] = 			{"STRING",			GREEN_FOREGROUND, 						isString,			NULL},
+	[TOK_NUMBER] = 			{"NUMBER",			YELLOW_FOREGROUND, 						isNumber,			NULL},
+	[TOK_KEYWORD] = 		{"KEYWORD",			BOLD_FONT BLUE_FOREGROUND, 		isKeyword,		NULL},
+	[TOK_IDENTIFIER] = 	{"IDENTIFIER",	BOLD_FONT MAGENTA_FOREGROUND, isIdentifier,	NULL}, /* Variable or function name */
+	[TOK_DELIMITER] = 	{"DELIMITER",		WHITE_FOREGROUND, 						isDelimiter,	NULL},
+	[TOK_COUNT] = 			{0}
 };
 
 // List of interpretable keywords

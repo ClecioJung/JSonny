@@ -26,6 +26,8 @@ enum TokTypes {
 	TOK_KEYWORD,
 	TOK_IDENTIFIER,
 	TOK_DELIMITER,
+
+	TOK_COUNT
 };
 
 struct Positioning {
