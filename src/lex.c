@@ -74,6 +74,8 @@ const char *const delimiterList[] = {
 	0
 };
 
+static struct TokenList *tokens = NULL;
+
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
@@ -229,7 +231,7 @@ static inline size_t max(const size_t x, const size_t y) {
 	return (((x) > (y)) ? (x) : (y));
 }
 
-static bool realocateTokenList(struct TokenList *tokens, size_t size) {
+static bool realocateTokenList(size_t size) {
 	if (size) {
 		struct Token *newList = (struct Token *) realloc(tokens->list, size*sizeof(struct Token));
 		if (!newList) {
@@ -244,50 +246,60 @@ static bool realocateTokenList(struct TokenList *tokens, size_t size) {
 	return true;
 }
 
+static void freeLex(void) {
+	if (tokens) {
+		free((void*)tokens->list);
+		free((void*)tokens);
+		tokens = NULL;
+	}
+}
+
 struct TokenList *lex(const char *const fileContends) {
 	unsigned int tkIndex;
 	struct Positioning pos = {
 		.string = fileContends, .length = 0, .line = 1, .col = 1,
 	};
-	struct TokenList *tokens = (struct TokenList *) malloc(sizeof(struct TokenList));
-	tokens->list = NULL;
-	tokens->size = 0;
+	tokens = (struct TokenList *) malloc(sizeof(struct TokenList));
+	if (tokens) {
+		tokens->list = NULL;
+		tokens->size = 0;
+		atexit(freeLex);
 
-	for (tkIndex = 0; *pos.string; tkIndex++) {
+		for (tkIndex = 0; *pos.string; tkIndex++) {
 
-		// Allocates more memory if necessary
-		if (tkIndex >= tokens->size) {
-			if (!realocateTokenList(tokens, 2 * max(tokens->size, 1))) {
-				printCrash("Lexical analysis error.\n");
+			// Allocates more memory if necessary
+			if (tkIndex >= tokens->size) {
+				if (!realocateTokenList(2 * max(tokens->size, 1))) {
+					printCrashAndExit("Lexical analysis error.\n");
+				}
+			}
+			// Initializes next token
+			tokens->list[tkIndex] = (struct Token) {
+				.type = TOK_UNKNOWN, .pos = pos,
+			};
+			// Sequential search to find type of next token
+			for (int checkIdx = TOK_SPACE; tokList[checkIdx].name; checkIdx++) {
+				// If found the token type
+				if (tokList[checkIdx].check(&tokens->list[tkIndex])) {
+					tokens->list[tkIndex].type = checkIdx;
+					increaseCodePosition(&pos, tokens->list[tkIndex].pos.length);
+					break;
+				}
+			}
+
+			// Stop at the first error found
+			if (errorsInTheCode()) {
+				break;
+			}
+			// If the token is still unknown, break the loop
+			if (tokens->list[tkIndex].type == TOK_UNKNOWN) {
+				printError(tokens->list[tkIndex].pos, "Ilegal definition.\n");
 				break;
 			}
 		}
-		// Initializes next token
-		tokens->list[tkIndex] = (struct Token) {
-			.type = TOK_UNKNOWN, .pos = pos,
-		};
-		// Sequential search to find type of next token
-		for (int checkIdx = TOK_SPACE; tokList[checkIdx].name; checkIdx++) {
-			// If found the token type
-			if (tokList[checkIdx].check(&tokens->list[tkIndex])) {
-				tokens->list[tkIndex].type = checkIdx;
-				increaseCodePosition(&pos, tokens->list[tkIndex].pos.length);
-				break;
-			}
-		}
-
-		// Stop at the first error found
-		if (errorsInTheCode()) {
-			break;
-		}
-		// If the token is still unknown, break the loop
-		if (tokens->list[tkIndex].type == TOK_UNKNOWN) {
-			printError(tokens->list[tkIndex].pos, "Ilegal definition.\n");
-			break;
-		}
+		// Free unused memory
+		realocateTokenList(tkIndex);
 	}
-	// Free unused memory
-	realocateTokenList(tokens, tkIndex);
 	// Return the list of tokens
 	return tokens;
 }

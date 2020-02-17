@@ -65,6 +65,8 @@ static const struct ArgCmd argList[] = {
 static const char *software = NULL;
 static bool debug = false;
 static enum ActionToBeTaken action = acParser;
+static const char *fileName = NULL;
+static const char *fileContends = NULL;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
@@ -116,7 +118,7 @@ static bool parseArgument(const char *const arg) {
 			}
 		}
 		// no valid argument found
-		printCrash("Unknown argument: %s\n", arg);
+		printCrashAndExit("Unknown argument: %s\n", arg);
 	}
 	return false;
 }
@@ -150,20 +152,26 @@ static char *getContentFromFile(const char *const name) {
 	return buffer;
 }
 
+static void freeMemory(void) {
+	free((void*)fileContends);
+	fileContends = NULL;
+}
+
 //------------------------------------------------------------------------------
 // MAIN
 //------------------------------------------------------------------------------
 
 int main(const int argc, const char *const argv[]) {
-	const char *fileName = NULL;
-	const char *fileContends = NULL;
 	struct TokenList *tokens = NULL;
+
 	software = argv[0];
+
+	atexit(freeMemory);
 
 	// Parse command line arguments
 	for (int argIdx = 1; argIdx < argc; argIdx++) {
 		if (!parseArgument(argv[argIdx])) {
-			if (isSomethingWrong() || fileName) {
+			if (fileName) {
 				printUsage();
 				return EXIT_FAILURE;
 			} else {
@@ -178,18 +186,12 @@ int main(const int argc, const char *const argv[]) {
 		if (fileName) {
 			fileContends = getContentFromFile(fileName);
 			if (!fileContends) {
-				printCrash("The specified file couldn't be loaded.\n");
-				return EXIT_FAILURE;
+				printCrashAndExit("The specified file couldn't be loaded.\n");
 			}
-		} else {
-			printCrash("No file specified.\n");
+		} else { // No file specified
 			printUsage();
 			return EXIT_FAILURE;
 		}
-	}
-
-	if (action >= acPrintTokenList) {
-		tokens = lex(fileContends);
 	}
 
 	// Executes the required action
@@ -197,22 +199,20 @@ int main(const int argc, const char *const argv[]) {
 		case acNone:
 		return EXIT_SUCCESS;
 		case acPrintTokenList:
+		tokens = lex(fileContends);
 		printTokenList(tokens);
 		break;
 		case acPrintColoredCode:
+		tokens = lex(fileContends);
 		printColoredCode(fileContends, tokens);
 		break;
 		case acParser:
 		default:
+		tokens = lex(fileContends);
 		parser(tokens);
 	}
 
-	// Free alocated memory and exit
-	free((void*)fileContends);
-	free((void*)tokens->list);
-	free((void*)tokens);
-	freeParser();
-	return (isSomethingWrong() ? EXIT_FAILURE : EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
 //------------------------------------------------------------------------------
 // END

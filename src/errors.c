@@ -19,19 +19,12 @@
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
-static bool crashFlag = false;
 static unsigned int errors = 0;
 static unsigned int warnings = 0;
 
 //------------------------------------------------------------------------------
 // FUNCTIONS
 //------------------------------------------------------------------------------
-
-// Function used to turn private to this file the error flag
-bool isSomethingWrong(void)
-{
-	return crashFlag;
-}
 
 bool errorsInTheCode(void)
 {
@@ -43,7 +36,7 @@ bool warningsInTheCode(void)
 	return warnings;
 }
 
-void printCrash(const char *const msg, ...)
+void printCrashAndExit(const char *const msg, ...)
 {
 	va_list args;
 
@@ -55,8 +48,8 @@ void printCrash(const char *const msg, ...)
 	vfprintf(stderr, msg, args);
 	va_end(args);
 
-	// Set error flag
-	crashFlag = true;
+	// Closes the program
+	exit(EXIT_FAILURE);
 }
 
 void printError(struct Positioning pos, const char *const msg, ...)

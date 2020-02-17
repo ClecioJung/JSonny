@@ -20,7 +20,14 @@ static int *stack = NULL;
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
+static void freeParser(void) {
+  free((void*)heap);
+  free((void*)stack);
+}
+
 void parser(const struct TokenList *const tokens) {
+  atexit(freeParser);
+
   for (unsigned int tkIndex = 0; tkIndex < tokens->size; tkIndex++) {
     // Ignores spaces, comments and unknown tokens
     if (tokens->list[tkIndex].type > TOK_COMMENT) {
@@ -29,11 +36,6 @@ void parser(const struct TokenList *const tokens) {
       }
     }
   }
-}
-
-void freeParser(void) {
-  free((void*)heap);
-  free((void*)stack);
 }
 
 //------------------------------------------------------------------------------

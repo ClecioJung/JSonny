@@ -121,7 +121,7 @@ memcheck:
 	valgrind --tool=memcheck ./$(EXEC) test/test01.js
 
 clean:
-	rm -fr $(ODIR)/ $(DDIR)/ $(EXEC) *~ env.mk
+	rm -fr $(ODIR)/ $(DDIR)/ $(EXEC) $(SDIR)/*.gch *~ env.mk
 
 remade: clean all
 
