@@ -316,8 +316,7 @@ static inline void printLineString(const char *string, const int length) {
 	}
 }
 
-void printTokenList(struct TokenList *tokens)
-{
+void printTokenList(struct TokenList *tokens) {
 	printf("Line\tColumn\tToken Type\tValue\n");
 	for (unsigned int tkIndex = 0; tkIndex < tokens->size; tkIndex++) {
 		// Doesn't print spaces and unknown tokens
@@ -332,8 +331,7 @@ void printTokenList(struct TokenList *tokens)
 	}
 }
 
-void printColoredCode(const char *code, struct TokenList *tokens)
-{
+void printColoredCode(const char *code, struct TokenList *tokens) {
 	unsigned int tkIndex = 0;
 	for (; *code != '\0'; code++) {
 		if (code >= tokens->list[tkIndex].pos.string) {

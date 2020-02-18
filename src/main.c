@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "definitions.h"
+#include "arguments.h"
 #include "errors.h"
 #include "lex.h"
 #include "parser.h"
@@ -21,16 +22,6 @@
 // USER TYPES
 //------------------------------------------------------------------------------
 
-typedef void (*ArgFunction)(void);
-
-// Table used to concentrate all the information related to the comand line arguments
-struct ArgCmd {
-	char cmd;
-	const char *command;
-	ArgFunction function;
-	const char *usage;
-};
-
 enum ActionToBeTaken {
 	acNone = 0,
 	acPrintTokenList,
@@ -42,27 +33,10 @@ enum ActionToBeTaken {
 // FUNCTION PROTOTYPES
 //------------------------------------------------------------------------------
 
-void printUsage(void);
-void printVersion(void);
-void printAbout(void);
-void debugModeOn(void);
-void setActionToken(void);
-void setActionCode(void);
-
 //------------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //------------------------------------------------------------------------------
 
-static const struct ArgCmd argList[] = {
-	{'h',	"--help",			printUsage,			"Display this help message."},
-	{'v',	"--version",	printVersion,		"Display the software version."},
-	{'a',	"--about",		printAbout,			"Display information about the software."},
-	{'d',	"--debug",		debugModeOn,		"Turns the debug mode on."},
-	{'l',	"--lex",			setActionToken,	"Display the lexical analysis of the input."},
-	{'c',	"--code",			setActionCode,	"Display the colored code."},
-	{0}
-};
-static const char *software = NULL;
 static bool debug = false;
 static enum ActionToBeTaken action = acParser;
 static const char *fileName = NULL;
@@ -72,55 +46,54 @@ static const char *fileContends = NULL;
 // FUNCTIONS
 //------------------------------------------------------------------------------
 
-void printUsage(void) {
-	printf(USAGE_HEADER "%s [script.js] [Options]\n", software);
-	printf("\n[Options]:\n");
-	for (unsigned int argIdx = 0; argList[argIdx].cmd; argIdx++) {
-		printf("   -%c, or %-10s\t%s\n", argList[argIdx].cmd, argList[argIdx].command, argList[argIdx].usage);
+static int getFileName(const char *const arg) {
+	if (fileName) {
+		return EXIT_FAILURE;
+	} else {
+		fileName = arg;
 	}
-	action = acNone;
+	return EXIT_SUCCESS;
 }
 
-void printVersion(void) {
+static int printUsage(const char *const software) {
+	printf(USAGE_HEADER "%s [script.js] [Options]\n", software);
+	action = acNone;
+	return EXIT_SUCCESS;
+}
+
+static int printVersion(const char *const arg) {
+	(void) arg;
+
 	printf(VERSION_HEADER VERSION "\n");
 	printf("Compilation date: %s\n", __DATE__);
 	action = acNone;
+	return EXIT_SUCCESS;
 }
 
-void printAbout(void) {
+static int printAbout(const char *const arg) {
+	(void) arg;
 	printf(ABOUT_HEADER "A simple JavaScript interpreter written in C.\n");
 	action = acNone;
+	return EXIT_SUCCESS;
 }
 
-void debugModeOn(void) {
+static int debugModeOn(const char *const arg) {
+	(void) arg;
 	printf(SETTINGS_HEADER "Debug mode on.\n");
 	debug = true;
+	return EXIT_SUCCESS;
 }
 
-void setActionToken(void) {
+static int setActionToken(const char *const arg) {
+	(void) arg;
 	action = acPrintTokenList;
+	return EXIT_SUCCESS;
 }
 
-void setActionCode(void) {
+static int setActionCode(const char *const arg) {
+	(void) arg;
 	action = acPrintColoredCode;
-}
-
-static bool parseArgument(const char *const arg) {
-	if (arg[0] == '-') {
-		const size_t length = strlen(arg);
-		// make sequential search looking for the argument
-		for (unsigned int argIdx = 0; argList[argIdx].cmd; argIdx++) {
-			if ((!strcmp(arg, argList[argIdx].command)) ||
-			((length == 2) && (arg[1] == argList[argIdx].cmd))) {
-				// found the argument in the list
-				argList[argIdx].function();
-				return true;
-			}
-		}
-		// no valid argument found
-		printCrashAndExit("Unknown argument: %s\n", arg);
-	}
-	return false;
+	return EXIT_SUCCESS;
 }
 
 static char *getContentFromFile(const char *const name) {
@@ -163,23 +136,16 @@ static void freeMemory(void) {
 
 int main(const int argc, const char *const argv[]) {
 	struct TokenList *tokens = NULL;
-
-	software = argv[0];
-
 	atexit(freeMemory);
 
-	// Parse command line arguments
-	for (int argIdx = 1; argIdx < argc; argIdx++) {
-		if (!parseArgument(argv[argIdx])) {
-			if (fileName) {
-				printUsage();
-				return EXIT_FAILURE;
-			} else {
-				// if isn't a argument, only can be a file name
-				fileName = argv[argIdx];
-			}
-		}
-	}
+	// Treat main() arguments
+	initArguments(printUsage, getFileName);
+	addArgument("--version", NULL, printVersion, "Display the software version.");
+	addArgument("--about", "-a", printAbout, "Display information about the software.");
+	addArgument("--debug", "-d", debugModeOn, "Turns the debug mode on.");
+	addArgument("--lex", "-l", setActionToken, "Display the lexical analysis of the input.");
+	addArgument("--code", "-c", setActionCode, "Display the colored code.");
+	parseArguments(argc, argv);
 
 	// Load script from file
 	if (action != acNone) {
@@ -188,8 +154,8 @@ int main(const int argc, const char *const argv[]) {
 			if (!fileContends) {
 				printCrashAndExit("The specified file couldn't be loaded.\n");
 			}
-		} else { // No file specified
-			printUsage();
+		} else {
+			argumentsUsage("No file specified");
 			return EXIT_FAILURE;
 		}
 	}
